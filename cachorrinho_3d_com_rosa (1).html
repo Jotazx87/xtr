@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cachorrinho 3D Especial Duo</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background: linear-gradient(135deg, #fce4ec 0%, #f8bbd0 50%, #f48fb1 100%);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            user-select: none;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Balão de Fala no topo */
+        .speech-bubble {
+            position: relative;
+            background: #ffffff;
+            border-radius: 18px;
+            box-shadow: 0 8px 20px rgba(233, 30, 99, 0.18);
+            border: 3px solid #ff80ab;
+            animation: floatBubble 3s ease-in-out infinite;
+        }
+
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -13px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 13px 13px 0;
+            border-style: solid;
+            border-color: #ffffff transparent;
+            display: block;
+            width: 0;
+            z-index: 10;
+        }
+
+        .speech-bubble::before {
+            content: '';
+            position: absolute;
+            bottom: -17px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 15px 15px 0;
+            border-style: solid;
+            border-color: #ff80ab transparent;
+            display: block;
+            width: 0;
+            z-index: 9;
+        }
+
+        @keyframes floatBubble {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .custom-btn {
+            background: linear-gradient(135deg, #ff4081, #f50057);
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(245, 0, 87, 0.3);
+        }
+
+        .custom-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .custom-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="relative flex flex-col justify-between items-center min-h-screen overflow-hidden">
+
+    <!-- Header UI -->
+    <div class="relative z-10 w-full max-w-xl px-4 pt-2 flex flex-col items-center">
+        <!-- Badge Superior -->
+        <div class="flex items-center gap-2 mb-1">
+            <span class="bg-white/80 backdrop-blur-md text-pink-600 px-3 py-0.5 rounded-full text-xs font-bold tracking-wider uppercase shadow-sm border border-pink-200">
+                <i class="fa-solid font-bold fa-heart mr-1 text-pink-500"></i> Duozona Especial
+            </span>
+        </div>
+
+        <!-- Balão de Fala Compacto no Topo -->
+        <div class="speech-bubble px-4 py-3 max-w-sm w-full text-center relative z-20">
+            <div class="bg-pink-100 text-pink-600 font-bold text-[10px] uppercase px-2.5 py-0.5 rounded-full inline-block mb-1">
+                Cachorrinho diz:
+            </div>
+            <p class="text-gray-800 font-semibold text-xs sm:text-sm leading-snug">
+                "Muito estranho um dia sem callzinha e sem falar q vc é a melhor do mundo duozona :( kkkkkk qnd ce tiver bem vai ter q ouvir um dia todo heinnn"
+            </p>
+            <span class="text-pink-400 text-[10px] block mt-0.5 font-normal">(Arraste a tela para girar)</span>
+        </div>
+    </div>
+
+    <!-- Botão de Latido -->
+    <div class="absolute top-3 right-3 z-20">
+        <button id="barkBtn" class="custom-btn text-white px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5">
+            <i class="fa-solid fa-paw"></i> Au Au!
+        </button>
+    </div>
+
+    <!-- Container do Canvas 3D -->
+    <div id="canvas-container"></div>
+
+    <!-- Footer UI -->
+    <div class="relative z-10 pb-3 text-center">
+        <p class="text-pink-800 font-bold text-xs bg-white/60 backdrop-blur-sm px-4 py-1 rounded-full shadow-sm border border-pink-200/50">
+            Feito por seu duozao... 💖
+        </p>
+    </div>
+
+    <script>
+        let scene, camera, renderer, dogGroup, tail, head, jaw, ears = [];
+        let isBarking = false;
+        let barkTimer = 0;
+
+        window.onload = function() {
+            init3D();
+            animate();
+        };
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+
+            // Scene
+            scene = new THREE.Scene();
+
+            // Camera ajustada para enquadrar o cachorrinho limpo no centro
+            camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1.8, 6.2);
+            camera.lookAt(0, 0.1, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Iluminação
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xfff0f5, 0.9);
+            dirLight.position.set(5, 10, 7);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            const pointLight = new THREE.PointLight(0xff4081, 0.5, 10);
+            pointLight.position.set(0, 2, 3);
+            scene.add(pointLight);
+
+            // Tapete com frase "Melhoras duozona <3"
+            createTapeteWithText();
+
+            // Grupo do Cachorrinho
+            dogGroup = new THREE.Group();
+            dogGroup.position.set(0, -0.45, 0);
+            scene.add(dogGroup);
+
+            createDog();
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize);
+            setupInteraction();
+        }
+
+        function createTapeteWithText() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // Fundo do Tapete
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(256, 256, 240, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Borda
+            ctx.strokeStyle = '#ff80ab';
+            ctx.lineWidth = 12;
+            ctx.beginPath();
+            ctx.arc(256, 256, 225, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Texto "Melhoras duozona <3"
+            ctx.fillStyle = '#f50057';
+            ctx.font = 'bold 44px "Fredoka", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Melhoras duozona <3', 256, 385);
+
+            const texture = new THREE.CanvasTexture(canvas);
+
+            const rugGeo = new THREE.CylinderGeometry(2.2, 2.2, 0.08, 64);
+            const rugMat = [
+                new THREE.MeshStandardMaterial({ color: 0xfff0f5 }),
+                new THREE.MeshStandardMaterial({ map: texture, roughness: 0.8 }),
+                new THREE.MeshStandardMaterial({ color: 0xfff0f5 })
+            ];
+
+            const rug = new THREE.Mesh(rugGeo, rugMat);
+            rug.position.set(0, -0.49, 0);
+            rug.receiveShadow = true;
+            scene.add(rug);
+        }
+
+        function createDog() {
+            const dogFurMaterial = new THREE.MeshStandardMaterial({ color: 0xffcc80, roughness: 0.6 });
+            const dogSnoutMaterial = new THREE.MeshStandardMaterial({ color: 0xffe0b2, roughness: 0.5 });
+            const bellyMaterial = new THREE.MeshStandardMaterial({ color: 0xfff8e1, roughness: 0.5 });
+            const noseMaterial = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.3 });
+            const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.1 });
+            const earMaterial = new THREE.MeshStandardMaterial({ color: 0xf4a261, roughness: 0.7 });
+
+            const bodyGroup = new THREE.Group();
+
+            // Corpo Esbelto
+            const bodyGeo = new THREE.SphereGeometry(0.6, 32, 32);
+            bodyGeo.scale(0.8, 1.05, 0.8);
+            const body = new THREE.Mesh(bodyGeo, dogFurMaterial);
+            body.position.set(0, 0.48, 0);
+            body.castShadow = true;
+            bodyGroup.add(body);
+
+            // Barriguinha fofa de outra cor (creme)
+            const bellyGeo = new THREE.SphereGeometry(0.48, 24, 24);
+            bellyGeo.scale(0.68, 0.85, 0.5);
+            const belly = new THREE.Mesh(bellyGeo, bellyMaterial);
+            belly.position.set(0, 0.42, 0.22);
+            bodyGroup.add(belly);
+
+            // Patas e Pernas firme no tapete
+            const legGeo = new THREE.CylinderGeometry(0.09, 0.1, 0.4, 16);
+            const pawGeo = new THREE.SphereGeometry(0.13, 16, 16);
+            pawGeo.scale(0.9, 0.45, 1.1);
+
+            // Pata Dianteira Esquerda
+            const frontLegL = new THREE.Mesh(legGeo, dogFurMaterial);
+            frontLegL.position.set(-0.22, 0.2, 0.28);
+            frontLegL.castShadow = true;
+            bodyGroup.add(frontLegL);
+
+            const pawFL = new THREE.Mesh(pawGeo, dogSnoutMaterial);
+            pawFL.position.set(-0.22, 0.05, 0.33);
+            bodyGroup.add(pawFL);
+
+            // Pata Dianteira Direita
+            const frontLegR = new THREE.Mesh(legGeo, dogFurMaterial);
+            frontLegR.position.set(0.22, 0.2, 0.28);
+            frontLegR.castShadow = true;
+            bodyGroup.add(frontLegR);
+
+            const pawFR = new THREE.Mesh(pawGeo, dogSnoutMaterial);
+            pawFR.position.set(0.22, 0.05, 0.33);
+            bodyGroup.add(pawFR);
+
+            // Patas Traseiras
+            const pawBL = new THREE.Mesh(pawGeo, dogFurMaterial);
+            pawBL.position.set(-0.42, 0.05, -0.05);
+            pawBL.rotation.y = 0.3;
+            bodyGroup.add(pawBL);
+
+            const pawBR = new THREE.Mesh(pawGeo, dogFurMaterial);
+            pawBR.position.set(0.42, 0.05, -0.05);
+            pawBR.rotation.y = -0.3;
+            bodyGroup.add(pawBR);
+
+            // Rabinho
+            const tailGeo = new THREE.CylinderGeometry(0.03, 0.07, 0.4, 16);
+            tail = new THREE.Mesh(tailGeo, dogFurMaterial);
+            tail.position.set(0, 0.3, -0.4);
+            tail.rotation.x = -Math.PI / 4;
+            tail.geometry.translate(0, 0.2, 0);
+            bodyGroup.add(tail);
+
+            // Cabeça
+            head = new THREE.Group();
+            head.position.set(0, 1.05, 0.08);
+
+            const headGeo = new THREE.SphereGeometry(0.5, 32, 32);
+            const headMesh = new THREE.Mesh(headGeo, dogFurMaterial);
+            headMesh.castShadow = true;
+            head.add(headMesh);
+
+            // Focinho
+            const snoutGeo = new THREE.SphereGeometry(0.22, 16, 16);
+            snoutGeo.scale(1.1, 0.85, 1.1);
+            const snout = new THREE.Mesh(snoutGeo, dogSnoutMaterial);
+            snout.position.set(0, -0.08, 0.38);
+            head.add(snout);
+
+            // Mandíbula
+            const jawGeo = new THREE.SphereGeometry(0.16, 16, 16);
+            jawGeo.scale(1.0, 0.5, 1.0);
+            jaw = new THREE.Mesh(jawGeo, dogSnoutMaterial);
+            jaw.position.set(0, -0.2, 0.34);
+            head.add(jaw);
+
+            // Nariz
+            const noseGeo = new THREE.SphereGeometry(0.07, 16, 16);
+            noseGeo.scale(1.2, 0.9, 1.0);
+            const nose = new THREE.Mesh(noseGeo, noseMaterial);
+            nose.position.set(0, -0.01, 0.58);
+            head.add(nose);
+
+            // Olhos
+            const eyeGeo = new THREE.SphereGeometry(0.065, 16, 16);
+            const eyeL = new THREE.Mesh(eyeGeo, eyeMaterial);
+            eyeL.position.set(-0.18, 0.07, 0.44);
+            head.add(eyeL);
+
+            const eyeR = new THREE.Mesh(eyeGeo, eyeMaterial);
+            eyeR.position.set(0.18, 0.07, 0.44);
+            head.add(eyeR);
+
+            // Brilho nos Olhos
+            const shineGeo = new THREE.SphereGeometry(0.018, 8, 8);
+            const shineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const shineL = new THREE.Mesh(shineGeo, shineMat);
+            shineL.position.set(-0.16, 0.09, 0.49);
+            head.add(shineL);
+
+            const shineR = new THREE.Mesh(shineGeo, shineMat);
+            shineR.position.set(0.2, 0.09, 0.49);
+            head.add(shineR);
+
+            // Orelhas
+            const earGeo = new THREE.ConeGeometry(0.2, 0.5, 16);
+            
+            const earL = new THREE.Mesh(earGeo, earMaterial);
+            earL.position.set(-0.43, 0.06, 0.0);
+            earL.rotation.z = Math.PI / 1.5;
+            earL.rotation.x = 0.2;
+            head.add(earL);
+            ears.push(earL);
+
+            const earR = new THREE.Mesh(earGeo, earMaterial);
+            earR.position.set(0.43, 0.06, 0.0);
+            earR.rotation.z = -Math.PI / 1.5;
+            earR.rotation.x = 0.2;
+            head.add(earR);
+            ears.push(earR);
+
+            // Rosa Bonita e Detalhada na Boca (Segurada suavemente de lado)
+            const roseGroup = createRose();
+            roseGroup.position.set(0, -0.15, 0.42);
+            roseGroup.rotation.y = Math.PI / 6;
+            roseGroup.rotation.z = -0.1;
+            head.add(roseGroup);
+
+            bodyGroup.add(head);
+            dogGroup.add(bodyGroup);
+        }
+
+        function createRose() {
+            const rose = new THREE.Group();
+
+            // Haste Verde (Posicionada para atravessar o focinho de lado)
+            const stemGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.85, 12);
+            const stemMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.6 });
+            const stem = new THREE.Mesh(stemGeo, stemMat);
+            stem.rotation.z = Math.PI / 2;
+            stem.position.set(0, 0, 0);
+            rose.add(stem);
+
+            // Folha Verde na Haste
+            const leafGeo = new THREE.SphereGeometry(0.07, 12, 12);
+            leafGeo.scale(1.8, 0.2, 0.8);
+            const leaf = new THREE.Mesh(leafGeo, stemMat);
+            leaf.position.set(-0.25, -0.03, 0);
+            leaf.rotation.z = 0.3;
+            rose.add(leaf);
+
+            // Botão da Rosa projetado bem para fora
+            const roseHead = new THREE.Group();
+            roseHead.position.set(0.48, 0, 0);
+
+            const redMat = new THREE.MeshStandardMaterial({ color: 0xd50000, roughness: 0.3 });
+            const darkRedMat = new THREE.MeshStandardMaterial({ color: 0x9b0000, roughness: 0.4 });
+
+            // Centro/Bulbo da Rosa
+            const centerGeo = new THREE.SphereGeometry(0.12, 16, 16);
+            centerGeo.scale(1, 1.2, 1);
+            const center = new THREE.Mesh(centerGeo, redMat);
+            roseHead.add(center);
+
+            // Pétalas da Rosa
+            for (let i = 0; i < 8; i++) {
+                const petalGeo = new THREE.SphereGeometry(0.1, 12, 12);
+                petalGeo.scale(0.35, 1.2, 1.1);
+                const petal = new THREE.Mesh(petalGeo, i % 2 === 0 ? redMat : darkRedMat);
+                const angle = (i / 8) * Math.PI * 2;
+                petal.position.set(Math.cos(angle) * 0.06, Math.sin(angle) * 0.06, (i * 0.01) - 0.04);
+                petal.rotation.z = angle;
+                petal.rotation.y = 0.2;
+                roseHead.add(petal);
+            }
+
+            // Cálice Verde da Rosa
+            const calyxGeo = new THREE.ConeGeometry(0.09, 0.12, 8);
+            const calyx = new THREE.Mesh(calyxGeo, stemMat);
+            calyx.rotation.z = -Math.PI / 2;
+            calyx.position.set(-0.06, 0, 0);
+            roseHead.add(calyx);
+
+            rose.add(roseHead);
+            return rose;
+        }
+
+        function setupInteraction() {
+            const barkBtn = document.getElementById('barkBtn');
+            barkBtn.addEventListener('click', triggerBark);
+
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+
+            window.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging || !dogGroup) return;
+
+                const deltaMove = {
+                    x: e.clientX - previousMousePosition.x,
+                    y: e.clientY - previousMousePosition.y
+                };
+
+                dogGroup.rotation.y += deltaMove.x * 0.008;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mouseup', () => isDragging = false);
+
+            window.addEventListener('touchstart', (e) => {
+                if(e.touches.length === 1) {
+                    isDragging = true;
+                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            });
+
+            window.addEventListener('touchmove', (e) => {
+                if (!isDragging || !dogGroup || e.touches.length !== 1) return;
+
+                const deltaMove = {
+                    x: e.touches[0].clientX - previousMousePosition.x,
+                    y: e.touches[0].clientY - previousMousePosition.y
+                };
+
+                dogGroup.rotation.y += deltaMove.x * 0.008;
+                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            });
+
+            window.addEventListener('touchend', () => isDragging = false);
+        }
+
+        function triggerBark() {
+            isBarking = true;
+            barkTimer = 0;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = Date.now() * 0.004;
+
+            // Animação de Rabo
+            if (tail) {
+                tail.rotation.y = Math.sin(time * 2.5) * 0.4;
+            }
+
+            // Animação leve de orelhas
+            if (ears.length === 2) {
+                ears[0].rotation.x = 0.2 + Math.sin(time * 1.5) * 0.05;
+                ears[1].rotation.x = 0.2 + Math.cos(time * 1.5) * 0.05;
+            }
+
+            // Respiração / Movimento da cabeça
+            if (head && !isBarking) {
+                head.rotation.z = Math.sin(time * 0.8) * 0.03;
+                head.position.y = 1.05 + Math.sin(time * 1.2) * 0.02;
+            }
+
+            // Animação de Latido
+            if (isBarking && head && jaw) {
+                barkTimer += 0.15;
+                head.position.y = 1.05 + Math.sin(barkTimer * 2) * 0.08;
+                jaw.position.y = -0.2 - Math.abs(Math.sin(barkTimer * 2)) * 0.08;
+
+                if (barkTimer > Math.PI * 2) {
+                    isBarking = false;
+                    jaw.position.y = -0.2;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
